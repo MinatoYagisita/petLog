@@ -1,0 +1,192 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model User {
+  id        String   @id
+  email     String?
+  createdAt DateTime @default(now())
+
+  pets          Pet[]
+  prescriptions Prescription[]
+  hospitals     Hospital[]
+  salons        Salon[]
+}
+
+model Pet {
+  id        String    @id @default(cuid())
+  userId    String
+  name      String
+  type      String
+  gender    String?
+  birthday  DateTime?
+  size      String?
+  neutered  Boolean?
+  photoUrl  String?
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+
+  user          User           @relation(fields: [userId], references: [id])
+  healthRecords HealthRecord[]
+  medications   Medication[]
+  visits        Visit[]
+  prescriptions Prescription[]
+  trimmings     Trimming[]
+}
+
+model HealthRecord {
+  id            String    @id @default(cuid())
+  petId         String
+  condition     String    @default("normal")
+  walked        Boolean   @default(false)
+  walkMinutes   Int?
+  weight        Float?
+  temperature   Float?
+  mealCount     Int?
+  mealAmount    Int?
+  waterCount    Int?
+  urineCount    Int?
+  fecalCount    Int?
+  fecalType     Int?
+  vomitCount    Int?
+  activityLevel Int?
+  recordedAt    DateTime
+  isBackfilled  Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  deletedAt     DateTime?
+
+  pet Pet @relation(fields: [petId], references: [id])
+}
+
+model Medication {
+  id          String    @id @default(cuid())
+  petId       String
+  name        String
+  startDate   DateTime
+  endDate     DateTime?
+  stockCount  Float?
+  doseAmount  Float?
+  stockUnit   String?
+  note        String?
+  createdAt   DateTime  @default(now())
+  deletedAt   DateTime?
+
+  pet       Pet                  @relation(fields: [petId], references: [id])
+  schedules MedicationSchedule[]
+}
+
+model MedicationSchedule {
+  id           String @id @default(cuid())
+  medicationId String
+  time         String
+
+  medication Medication      @relation(fields: [medicationId], references: [id])
+  logs       MedicationLog[]
+}
+
+model MedicationLog {
+  id         String    @id @default(cuid())
+  scheduleId String
+  date       DateTime
+  status     String    @default("scheduled")
+  actualTime DateTime?
+  note       String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  schedule MedicationSchedule @relation(fields: [scheduleId], references: [id])
+}
+
+model Hospital {
+  id        String    @id @default(cuid())
+  userId    String
+  name      String
+  phone     String?
+  note      String?
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+
+  user   User    @relation(fields: [userId], references: [id])
+  visits Visit[]
+}
+
+model Visit {
+  id            String    @id @default(cuid())
+  petId         String
+  hospitalId    String?
+  hospitalName  String
+  visitDate     DateTime
+  diagnosis     String?
+  note          String?
+  nextVisitDate DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  pet          Pet           @relation(fields: [petId], references: [id])
+  hospital     Hospital?     @relation(fields: [hospitalId], references: [id])
+  prescription Prescription?
+}
+
+model Prescription {
+  id             String    @id @default(cuid())
+  petId          String
+  userId         String
+  visitId        String?   @unique
+  prescribedDate DateTime
+  createdAt      DateTime  @default(now())
+  deletedAt      DateTime?
+
+  pet         Pet                      @relation(fields: [petId], references: [id])
+  user        User                     @relation(fields: [userId], references: [id])
+  visit       Visit?                   @relation(fields: [visitId], references: [id])
+  medications PrescriptionMedication[]
+}
+
+model PrescriptionMedication {
+  id             String @id @default(cuid())
+  prescriptionId String
+  name           String
+  dosage         String
+  frequency      Int
+  duration       Int
+
+  prescription Prescription @relation(fields: [prescriptionId], references: [id])
+}
+
+model Salon {
+  id        String    @id @default(cuid())
+  userId    String
+  name      String
+  phone     String?
+  note      String?
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+
+  user      User       @relation(fields: [userId], references: [id])
+  trimmings Trimming[]
+}
+
+model Trimming {
+  id                String    @id @default(cuid())
+  petId             String
+  salonId           String?
+  salonName         String?
+  scheduledDate     DateTime
+  completedDate     DateTime?
+  content           String?
+  cost              Int?
+  note              String?
+  nextScheduledDate DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime?
+
+  pet   Pet    @relation(fields: [petId], references: [id])
+  salon Salon? @relation(fields: [salonId], references: [id])
+}
