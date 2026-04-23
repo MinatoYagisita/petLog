@@ -94,7 +94,8 @@ export default function HealthPage() {
       ) : (
         <div className="flex flex-col gap-3">
           {records.map((r) => (
-            <Card key={r.id}>
+            <Link key={r.id} href={`/health/${r.id}`}>
+            <Card>
               <div className="flex items-start justify-between mb-2">
                 <p className="text-sm font-semibold text-text-primary">
                   {formatDateTime(r.recordedAt)}
@@ -102,6 +103,7 @@ export default function HealthPage() {
                     <span className="text-xs text-text-secondary ml-2">（後入力）</span>
                   )}
                 </p>
+                <span className="text-xs text-primary font-medium">詳細 ›</span>
               </div>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1">
                 {r.weight != null && (
@@ -130,6 +132,7 @@ export default function HealthPage() {
                 )}
               </div>
             </Card>
+            </Link>
           ))}
         </div>
       )}

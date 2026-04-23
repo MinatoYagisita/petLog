@@ -4,7 +4,7 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "sqlite"
 }
 
 model User {
@@ -12,10 +12,51 @@ model User {
   email     String?
   createdAt DateTime @default(now())
 
-  pets          Pet[]
-  prescriptions Prescription[]
-  hospitals     Hospital[]
-  salons        Salon[]
+  pets                Pet[]
+  prescriptions       Prescription[]
+  hospitals           Hospital[]
+  salons              Salon[]
+  fcmTokens           FcmToken[]
+  notificationSetting NotificationSetting?
+  notificationLogs    NotificationLog[]
+}
+
+model FcmToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model NotificationSetting {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  medReminder      Boolean  @default(true)
+  medOverdue       Boolean  @default(true)
+  stockAlert       Boolean  @default(true)
+  visitReminder    Boolean  @default(true)
+  trimmingReminder Boolean  @default(true)
+  healthPrompt     Boolean  @default(false)
+  stockThreshold   Int      @default(7)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model NotificationLog {
+  id     String   @id @default(cuid())
+  userId String
+  type   String
+  refId  String
+  sentAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, type, refId])
 }
 
 model Pet {

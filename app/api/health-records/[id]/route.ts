@@ -3,6 +3,21 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyAuth } from "@/lib/auth-middleware";
 
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { uid } = await verifyAuth(req);
+    const { id } = await params;
+
+    const record = await prisma.healthRecord.findFirst({
+      where: { id, deletedAt: null, pet: { userId: uid } },
+    });
+    if (!record) return Response.json({ error: "見つかりません" }, { status: 404 });
+    return Response.json(record);
+  } catch {
+    return Response.json({ error: "見つかりません" }, { status: 404 });
+  }
+}
+
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { uid } = await verifyAuth(req);

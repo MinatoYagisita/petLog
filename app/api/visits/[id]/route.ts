@@ -30,14 +30,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (!existing) return Response.json({ error: "見つかりません" }, { status: 404 });
 
     const body = await req.json();
-    const visit = await prisma.visit.update({
-      where: { id },
-      data: {
-        hospitalName: body.hospitalName?.trim(),
-        diagnosis: body.diagnosis?.trim(),
-        nextVisitDate: body.nextVisitDate ? new Date(body.nextVisitDate) : undefined,
-      },
-    });
+    const data: Record<string, unknown> = {};
+    if (body.visitDate !== undefined) data.visitDate = new Date(body.visitDate);
+    if (body.hospitalId !== undefined) data.hospitalId = body.hospitalId || null;
+    if (body.hospitalName !== undefined) data.hospitalName = body.hospitalName.trim();
+    if (body.diagnosis !== undefined) data.diagnosis = body.diagnosis?.trim() || null;
+    if (body.note !== undefined) data.note = body.note?.trim() || null;
+    if (body.nextVisitDate !== undefined) data.nextVisitDate = body.nextVisitDate ? new Date(body.nextVisitDate) : null;
+    const visit = await prisma.visit.update({ where: { id }, data });
     return Response.json(visit);
   } catch {
     return Response.json({ error: "更新できませんでした" }, { status: 400 });

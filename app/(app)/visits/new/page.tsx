@@ -1,15 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePets } from "@/contexts/PetContext";
 import { api } from "@/lib/api-client";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
-import { TextArea } from "@/components/ui/Input";
+import { Input, TextArea } from "@/components/ui/Input";
 import toast from "react-hot-toast";
+
+interface Hospital {
+  id: string;
+  name: string;
+}
 
 interface PrescriptionMedInput {
   name: string;
@@ -25,8 +29,11 @@ export default function NewVisitPage() {
 
   const today = new Date().toISOString().split("T")[0];
   const [visitDate, setVisitDate] = useState(today);
+  const [hospitals, setHospitals] = useState<Hospital[]>([]);
+  const [hospitalId, setHospitalId] = useState("");
   const [hospitalName, setHospitalName] = useState("");
   const [diagnosis, setDiagnosis] = useState("");
+  const [note, setNote] = useState("");
   const [nextVisitDate, setNextVisitDate] = useState("");
   const [hasPrescription, setHasPrescription] = useState(false);
   const [prescribedDate, setPrescribedDate] = useState(today);
@@ -34,6 +41,22 @@ export default function NewVisitPage() {
     { name: "", dosage: "", frequency: 1, duration: 7 },
   ]);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    api.get<Hospital[]>("/api/hospitals", user).then(setHospitals).catch(() => {});
+  }, [user]);
+
+  function handleHospitalSelect(e: React.ChangeEvent<HTMLSelectElement>) {
+    const id = e.target.value;
+    setHospitalId(id);
+    if (id) {
+      const h = hospitals.find((h) => h.id === id);
+      setHospitalName(h?.name ?? "");
+    } else {
+      setHospitalName("");
+    }
+  }
 
   function addMed() {
     setMeds([...meds, { name: "", dosage: "", frequency: 1, duration: 7 }]);
@@ -52,13 +75,20 @@ export default function NewVisitPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!user || !activePet) return;
+    const resolvedHospitalName = hospitalName.trim();
+    if (!resolvedHospitalName) {
+      toast.error("病院名を入力してください");
+      return;
+    }
     setLoading(true);
     try {
       await api.post("/api/visits", user, {
         petId: activePet.id,
         visitDate,
-        hospitalName,
+        hospitalId: hospitalId || undefined,
+        hospitalName: resolvedHospitalName,
         diagnosis: diagnosis || undefined,
+        note: note || undefined,
         nextVisitDate: nextVisitDate || undefined,
         prescription: hasPrescription && meds.some((m) => m.name)
           ? { prescribedDate, medications: meds.filter((m) => m.name) }
@@ -102,18 +132,42 @@ export default function NewVisitPage() {
             onChange={(e) => setVisitDate(e.target.value)}
             required
           />
+
+          {hospitals.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <label className="text-sm font-medium text-text-primary">病院を選択</label>
+              <select
+                value={hospitalId}
+                onChange={handleHospitalSelect}
+                className="rounded-xl border border-border bg-surface px-4 py-2.5 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">直接入力する</option>
+                {hospitals.map((h) => (
+                  <option key={h.id} value={h.id}>{h.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <Input
-            label="病院名"
+            label={hospitalId ? "病院名（確認）" : "病院名"}
             value={hospitalName}
-            onChange={(e) => setHospitalName(e.target.value)}
+            onChange={(e) => { setHospitalName(e.target.value); setHospitalId(""); }}
             placeholder="例: ○○動物病院"
             required
           />
+
           <TextArea
             label="診断内容（任意）"
             value={diagnosis}
             onChange={(e) => setDiagnosis(e.target.value)}
             placeholder="例: 膀胱炎"
+          />
+          <TextArea
+            label="メモ（任意）"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="例: 次回血液検査予定"
           />
           <Input
             label="次回通院予定日（任意）"

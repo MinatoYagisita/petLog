@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { PageSpinner } from "@/components/ui/Spinner";
 import { PetProvider } from "@/contexts/PetContext";
+import { NotificationInitializer } from "@/components/NotificationInitializer";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -29,6 +30,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <PetProvider>
+      <NotificationInitializer />
       <div className="min-h-screen bg-app-bg">
         <main className="max-w-[480px] mx-auto pb-24">{children}</main>
         <BottomNav />

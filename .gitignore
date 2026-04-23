@@ -44,3 +44,7 @@ next-env.d.ts
 
 # Claude Code auto-memory (personal info)
 .claude/memory/
+
+# SQLite local database
+prisma/*.db
+prisma/*.db-journal

@@ -37,6 +37,22 @@ interface Visit {
   nextVisitDate: string | null;
 }
 
+interface Trimming {
+  id: string;
+  salonName: string | null;
+  scheduledDate: string;
+  completedDate: string | null;
+  nextScheduledDate: string | null;
+}
+
+interface MedicationAlert {
+  id: string;
+  name: string;
+  stockCount: number;
+  doseAmount: number;
+  remainingDays: number;
+}
+
 const NEXT_STATUS: Record<string, string> = {
   pending: "done",
   delayed: "done",
@@ -53,6 +69,8 @@ export default function DashboardPage() {
   const [todayLogs, setTodayLogs] = useState<TodayLog[]>([]);
   const [latestRecord, setLatestRecord] = useState<HealthRecord | null>(null);
   const [nextVisit, setNextVisit] = useState<Visit | null>(null);
+  const [nextTrimming, setNextTrimming] = useState<Trimming | null>(null);
+  const [stockAlerts, setStockAlerts] = useState<MedicationAlert[]>([]);
   const [loadedPetId, setLoadedPetId] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const router = useRouter();
@@ -69,12 +87,32 @@ export default function DashboardPage() {
       api.get<TodayLog[]>(`/api/medication-logs/today?petId=${petId}`, user).catch(() => [] as TodayLog[]),
       api.get<HealthRecord[]>(`/api/health-records?petId=${petId}`, user).catch(() => [] as HealthRecord[]),
       api.get<Visit[]>(`/api/visits?petId=${petId}`, user).catch(() => [] as Visit[]),
-    ]).then(([logs, records, visits]) => {
+      api.get<Trimming[]>(`/api/trimming?petId=${petId}`, user).catch(() => [] as Trimming[]),
+      api.get<{ id: string; name: string; stockCount: number | null; doseAmount: number | null; schedules: unknown[] }[]>(`/api/medications?petId=${petId}`, user).catch(() => []),
+    ]).then(([logs, records, visits, trimmings, meds]) => {
       if (!cancelled) {
         setTodayLogs(logs);
         setLatestRecord(records[0] ?? null);
         const upcoming = visits.find((v) => v.nextVisitDate && new Date(v.nextVisitDate) >= new Date());
         setNextVisit(upcoming ?? null);
+        const now = new Date();
+        const upcomingTrimming = trimmings
+          .filter((t) => !t.completedDate && new Date(t.scheduledDate) >= now)
+          .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime())[0]
+          ?? trimmings.find((t) => t.nextScheduledDate && new Date(t.nextScheduledDate) >= now)
+          ?? null;
+        setNextTrimming(upcomingTrimming);
+        const alerts = meds
+          .filter((m) => m.stockCount != null && m.doseAmount != null && m.doseAmount > 0 && m.schedules.length > 0)
+          .map((m) => ({
+            id: m.id,
+            name: m.name,
+            stockCount: m.stockCount!,
+            doseAmount: m.doseAmount!,
+            remainingDays: Math.floor(m.stockCount! / (m.doseAmount! * m.schedules.length)),
+          }))
+          .filter((a) => a.remainingDays <= 7);
+        setStockAlerts(alerts);
         setLoadedPetId(petId);
       }
     });
@@ -85,15 +123,35 @@ export default function DashboardPage() {
   const refreshDashboard = useCallback(async () => {
     if (!user || !activePet) return;
     const petId = activePet.id;
-    const [logs, records, visits] = await Promise.all([
+    const [logs, records, visits, trimmings, meds] = await Promise.all([
       api.get<TodayLog[]>(`/api/medication-logs/today?petId=${petId}`, user).catch(() => [] as TodayLog[]),
       api.get<HealthRecord[]>(`/api/health-records?petId=${petId}`, user).catch(() => [] as HealthRecord[]),
       api.get<Visit[]>(`/api/visits?petId=${petId}`, user).catch(() => [] as Visit[]),
+      api.get<Trimming[]>(`/api/trimming?petId=${petId}`, user).catch(() => [] as Trimming[]),
+      api.get<{ id: string; name: string; stockCount: number | null; doseAmount: number | null; schedules: unknown[] }[]>(`/api/medications?petId=${petId}`, user).catch(() => []),
     ]);
     setTodayLogs(logs);
     setLatestRecord(records[0] ?? null);
     const upcoming = visits.find((v) => v.nextVisitDate && new Date(v.nextVisitDate) >= new Date());
     setNextVisit(upcoming ?? null);
+    const now = new Date();
+    const upcomingTrimming = trimmings
+      .filter((t) => !t.completedDate && new Date(t.scheduledDate) >= now)
+      .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime())[0]
+      ?? trimmings.find((t) => t.nextScheduledDate && new Date(t.nextScheduledDate) >= now)
+      ?? null;
+    setNextTrimming(upcomingTrimming);
+    const alerts = meds
+      .filter((m) => m.stockCount != null && m.doseAmount != null && m.doseAmount > 0 && m.schedules.length > 0)
+      .map((m) => ({
+        id: m.id,
+        name: m.name,
+        stockCount: m.stockCount!,
+        doseAmount: m.doseAmount!,
+        remainingDays: Math.floor(m.stockCount! / (m.doseAmount! * m.schedules.length)),
+      }))
+      .filter((a) => a.remainingDays <= 7);
+    setStockAlerts(alerts);
     setLoadedPetId(petId);
   }, [user, activePet]);
 
@@ -163,6 +221,34 @@ export default function DashboardPage() {
         <PageSpinner />
       ) : (
         <>
+          {/* Stock alerts */}
+          {stockAlerts.length > 0 && (
+            <section>
+              <div className="flex items-center gap-2 mb-2">
+                <h2 className="text-base font-semibold text-text-primary">薬残量アラート</h2>
+                <span className="bg-[#FEF3C7] text-[#92400E] text-xs font-bold px-2 py-0.5 rounded-full">
+                  {stockAlerts.length}
+                </span>
+              </div>
+              <div className="flex flex-col gap-2">
+                {stockAlerts.map((a) => (
+                  <Card key={a.id} className="flex items-center gap-3 bg-[#FFFBEB]">
+                    <div className="text-2xl">⚠️</div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-text-primary">{a.name}</p>
+                      <p className="text-xs text-[#92400E]">
+                        残量 {a.stockCount} → 残り約 {a.remainingDays} 日分
+                      </p>
+                    </div>
+                    <Link href={`/medications/${a.id}`} className="text-xs text-primary font-medium flex-shrink-0">
+                      詳細 ›
+                    </Link>
+                  </Card>
+                ))}
+              </div>
+            </section>
+          )}
+
           {/* Pending medications — most important */}
           {pendingLogs.length > 0 && (
             <section>
@@ -253,6 +339,18 @@ export default function DashboardPage() {
                   <p className="text-sm font-medium text-text-primary">通院登録</p>
                 </Card>
               </Link>
+              <Link href="/trimming/new">
+                <Card className="text-center py-4 cursor-pointer hover:border-primary transition-colors">
+                  <div className="text-2xl mb-1">✂️</div>
+                  <p className="text-sm font-medium text-text-primary">サロン予約</p>
+                </Card>
+              </Link>
+              <Link href="/medications/bulk">
+                <Card className="text-center py-4 cursor-pointer hover:border-primary transition-colors">
+                  <div className="text-2xl mb-1">💊</div>
+                  <p className="text-sm font-medium text-text-primary">薬を登録</p>
+                </Card>
+              </Link>
             </div>
           </section>
 
@@ -287,6 +385,27 @@ export default function DashboardPage() {
                     {nextVisit.nextVisitDate ? formatDate(nextVisit.nextVisitDate) : ""}
                   </p>
                 </div>
+              </Card>
+            </section>
+          )}
+
+          {/* Next trimming */}
+          {nextTrimming && (
+            <section>
+              <h2 className="text-base font-semibold text-text-primary mb-2">次回トリミング予定</h2>
+              <Card className="flex items-center gap-3">
+                <div className="text-2xl">✂️</div>
+                <div>
+                  <p className="text-sm font-medium text-text-primary">
+                    {nextTrimming.salonName ?? "サロン未設定"}
+                  </p>
+                  <p className="text-xs text-text-secondary">
+                    {formatDate(nextTrimming.nextScheduledDate ?? nextTrimming.scheduledDate)}
+                  </p>
+                </div>
+                <Link href="/trimming" className="ml-auto text-xs text-primary font-medium">
+                  詳細 ›
+                </Link>
               </Card>
             </section>
           )}

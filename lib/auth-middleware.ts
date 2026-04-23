@@ -13,7 +13,6 @@ export async function verifyAuth(req: NextRequest): Promise<AuthContext> {
   const token = authorization.slice(7);
   const decoded = await adminAuth.verifyIdToken(token);
 
-  // Upsert user record on first access
   await prisma.user.upsert({
     where: { id: decoded.uid },
     update: {},
