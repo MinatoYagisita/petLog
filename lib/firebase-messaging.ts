@@ -5,6 +5,7 @@ export async function requestFcmToken(): Promise<string | null> {
   if (typeof window === "undefined") return null;
   if (!("Notification" in window) || !("serviceWorker" in navigator)) return null;
 
+  if (Notification.permission === "denied") return null;
   const permission = await Notification.requestPermission();
   if (permission !== "granted") return null;
 

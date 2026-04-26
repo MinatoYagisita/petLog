@@ -2,31 +2,73 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/contexts/AuthContext";
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import toast from "react-hot-toast";
 
 type Mode = "login" | "signup";
+type UserType = "owner" | "place";
+type PlaceType = "hospital" | "salon";
+
+const ADMIN_EMAIL = "minato.yagishita@gmail.com";
 
 export default function LoginPage() {
-  const { signIn, signUp } = useAuth();
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("login");
+  const [userType, setUserType] = useState<UserType>("owner");
+  const [placeType, setPlaceType] = useState<PlaceType>("hospital");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+
+  async function afterLogin(token: string, emailAddr: string) {
+    if (emailAddr === ADMIN_EMAIL) {
+      router.replace("/admin");
+      return;
+    }
+    try {
+      const res = await fetch("/api/place-accounts/me", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        router.replace("/place-dashboard");
+        return;
+      }
+    } catch {
+      // not a place account
+    }
+    router.replace("/dashboard");
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     try {
       if (mode === "login") {
-        await signIn(email, password);
+        const cred = await signInWithEmailAndPassword(auth, email, password);
+        const token = await cred.user.getIdToken();
+        await afterLogin(token, cred.user.email ?? "");
       } else {
-        await signUp(email, password);
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        const token = await cred.user.getIdToken();
+        if (userType === "place") {
+          const res = await fetch("/api/place-accounts", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ accountType: placeType }),
+          });
+          if (!res.ok) {
+            toast.error("施設アカウントの作成に失敗しました");
+            setLoading(false);
+            return;
+          }
+          router.replace("/place-dashboard");
+        } else {
+          router.replace("/dashboard");
+        }
       }
-      router.replace("/dashboard");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "エラーが発生しました";
       if (message.includes("user-not-found") || message.includes("wrong-password") || message.includes("invalid-credential")) {
@@ -55,9 +97,7 @@ export default function LoginPage() {
             <button
               onClick={() => setMode("login")}
               className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${
-                mode === "login"
-                  ? "bg-surface shadow-sm text-text-primary"
-                  : "text-text-secondary"
+                mode === "login" ? "bg-surface shadow-sm text-text-primary" : "text-text-secondary"
               }`}
             >
               ログイン
@@ -65,14 +105,68 @@ export default function LoginPage() {
             <button
               onClick={() => setMode("signup")}
               className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${
-                mode === "signup"
-                  ? "bg-surface shadow-sm text-text-primary"
-                  : "text-text-secondary"
+                mode === "signup" ? "bg-surface shadow-sm text-text-primary" : "text-text-secondary"
               }`}
             >
               新規登録
             </button>
           </div>
+
+          {mode === "signup" && (
+            <div className="mb-5">
+              <p className="text-sm font-medium text-text-primary mb-2">アカウント種別</p>
+              <div className="flex rounded-xl border border-border overflow-hidden mb-3">
+                <button
+                  type="button"
+                  onClick={() => setUserType("owner")}
+                  className={`flex-1 py-2.5 text-sm transition-colors ${
+                    userType === "owner"
+                      ? "bg-primary text-text-primary font-semibold"
+                      : "bg-surface text-text-secondary"
+                  }`}
+                >
+                  🐾 飼い主
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUserType("place")}
+                  className={`flex-1 py-2.5 text-sm transition-colors ${
+                    userType === "place"
+                      ? "bg-primary text-text-primary font-semibold"
+                      : "bg-surface text-text-secondary"
+                  }`}
+                >
+                  🏥 病院・サロン
+                </button>
+              </div>
+              {userType === "place" && (
+                <div className="flex rounded-xl border border-border overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setPlaceType("hospital")}
+                    className={`flex-1 py-2.5 text-sm transition-colors ${
+                      placeType === "hospital"
+                        ? "bg-accent text-text-primary font-semibold"
+                        : "bg-surface text-text-secondary"
+                    }`}
+                  >
+                    動物病院
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPlaceType("salon")}
+                    className={`flex-1 py-2.5 text-sm transition-colors ${
+                      placeType === "salon"
+                        ? "bg-accent text-text-primary font-semibold"
+                        : "bg-surface text-text-secondary"
+                    }`}
+                  >
+                    トリミングサロン
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <Input

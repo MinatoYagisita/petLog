@@ -69,6 +69,7 @@ export default function NewMedicationPage() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
+  const [durationDays, setDurationDays] = useState("");
   const [endDate, setEndDate] = useState("");
   const [times, setTimes] = useState(["08:00"]);
   const [stockCount, setStockCount] = useState("");
@@ -81,6 +82,24 @@ export default function NewMedicationPage() {
     stockCount && doseAmount && times.length > 0
       ? Math.floor(parseFloat(stockCount) / (parseFloat(doseAmount) * times.length))
       : null;
+
+  function handleDurationChange(days: string) {
+    setDurationDays(days);
+    if (days && startDate) {
+      const d = new Date(startDate);
+      d.setDate(d.getDate() + parseInt(days) - 1);
+      setEndDate(d.toISOString().split("T")[0]);
+    }
+  }
+
+  function handleStartDateChange(date: string) {
+    setStartDate(date);
+    if (durationDays && date) {
+      const d = new Date(date);
+      d.setDate(d.getDate() + parseInt(durationDays) - 1);
+      setEndDate(d.toISOString().split("T")[0]);
+    }
+  }
 
   function addTime() { setTimes([...times, "08:00"]); }
   function removeTime(i: number) { setTimes(times.filter((_, idx) => idx !== i)); }
@@ -145,9 +164,34 @@ export default function NewMedicationPage() {
           />
 
           <div className="flex gap-3">
-            <Input label="開始日" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
-            <Input label="終了日（任意）" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+            <Input
+              label="開始日"
+              type="date"
+              value={startDate}
+              onChange={(e) => handleStartDateChange(e.target.value)}
+              required
+            />
+            <Input
+              label="投薬日数"
+              type="number"
+              min="1"
+              value={durationDays}
+              onChange={(e) => handleDurationChange(e.target.value)}
+              placeholder="例: 14"
+            />
           </div>
+          {endDate && (
+            <p className="text-xs text-text-secondary -mt-2">
+              終了日: <span className="font-medium text-text-primary">{endDate}</span>
+              {durationDays && <span className="ml-1">（{durationDays}日間）</span>}
+            </p>
+          )}
+          <Input
+            label="終了日（直接入力も可）"
+            type="date"
+            value={endDate}
+            onChange={(e) => { setEndDate(e.target.value); setDurationDays(""); }}
+          />
 
           <div className="flex flex-col gap-2">
             <p className="text-sm font-medium text-text-primary">

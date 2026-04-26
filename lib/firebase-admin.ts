@@ -1,8 +1,10 @@
 import type { Auth } from "firebase-admin/auth";
 import type { Messaging } from "firebase-admin/messaging";
+import type { Storage } from "firebase-admin/storage";
 
 let _auth: Auth | null = null;
 let _messaging: Messaging | null = null;
+let _storage: Storage | null = null;
 
 function initAdminApp() {
   const { initializeApp, getApps, cert } = require("firebase-admin/app");
@@ -13,6 +15,7 @@ function initAdminApp() {
         clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
         privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
       }),
+      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
     });
   }
 }
@@ -33,6 +36,14 @@ function getAdminMessaging(): Messaging {
   return _messaging!;
 }
 
+function getAdminStorage(): Storage {
+  if (_storage) return _storage;
+  initAdminApp();
+  const { getStorage } = require("firebase-admin/storage");
+  _storage = getStorage();
+  return _storage!;
+}
+
 export const adminAuth = {
   verifyIdToken: (token: string) => getAdminAuth().verifyIdToken(token),
 };
@@ -41,4 +52,8 @@ export const adminMessaging = {
   sendEachForMulticast: (
     msg: Parameters<Messaging["sendEachForMulticast"]>[0]
   ) => getAdminMessaging().sendEachForMulticast(msg),
+};
+
+export const adminStorage = {
+  bucket: () => getAdminStorage().bucket(),
 };

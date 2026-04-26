@@ -73,6 +73,14 @@ export default function HospitalsPage() {
                 <p className="font-semibold text-text-primary">{h.name}</p>
                 {h.phone && <p className="text-sm text-text-secondary">{h.phone}</p>}
                 {h.note && <p className="text-xs text-text-secondary mt-0.5">{h.note}</p>}
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(h.name)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-primary underline mt-1 inline-block"
+                >
+                  Googleマップで見る
+                </a>
               </div>
               <div className="flex gap-2 flex-shrink-0">
                 <Link href={`/hospitals/${h.id}/edit`} className="text-sm text-primary font-medium">

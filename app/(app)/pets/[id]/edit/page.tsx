@@ -10,8 +10,6 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { PageSpinner } from "@/components/ui/Spinner";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import app from "@/lib/firebase";
 import toast from "react-hot-toast";
 
 const PET_TYPES = ["犬", "猫", "うさぎ", "鳥", "ハムスター", "その他"];
@@ -66,11 +64,24 @@ function ToggleGroup({
   );
 }
 
-async function uploadPhoto(file: File, petId: string): Promise<string> {
-  const storage = getStorage(app);
-  const storageRef = ref(storage, `pets/${petId}`);
-  await uploadBytes(storageRef, file);
-  return getDownloadURL(storageRef);
+function compressToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const maxSize = 400;
+      let { width, height } = img;
+      if (width > height && width > maxSize) { height = (height * maxSize) / width; width = maxSize; }
+      else if (height > width && height > maxSize) { width = (width * maxSize) / height; height = maxSize; }
+      else if (width > maxSize) { height = maxSize; width = maxSize; }
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(width);
+      canvas.height = Math.round(height);
+      canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL("image/jpeg", 0.75));
+    };
+    img.onerror = reject;
+    img.src = URL.createObjectURL(file);
+  });
 }
 
 function toDateInput(isoStr: string | null): string {
@@ -132,9 +143,10 @@ export default function EditPetPage() {
       let photoUrl = currentPhotoUrl;
       if (photoFile) {
         try {
-          photoUrl = await uploadPhoto(photoFile, id);
-        } catch {
-          toast("写真のアップロードに失敗しました");
+          photoUrl = await compressToBase64(photoFile);
+        } catch (e) {
+          console.error("[photo]", e);
+          toast.error("写真の保存に失敗しました");
         }
       }
 

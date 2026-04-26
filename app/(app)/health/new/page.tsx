@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePets } from "@/contexts/PetContext";
@@ -70,7 +70,10 @@ function Stepper({
       <div className="flex items-center gap-3">
         <button
           type="button"
-          onClick={() => onChange(typeof value === "number" ? Math.max(min, value - 1) : min)}
+          onClick={() => {
+            if (value === "") return;
+            onChange(value <= 0 ? 0 : value - 1);
+          }}
           className="w-10 h-10 rounded-xl border border-border bg-surface text-xl text-text-primary flex items-center justify-center active:scale-95"
         >
           −
@@ -80,7 +83,7 @@ function Stepper({
         </span>
         <button
           type="button"
-          onClick={() => onChange(typeof value === "number" ? Math.min(max, value + 1) : min)}
+          onClick={() => onChange(value === "" ? 1 : Math.min(max, value + 1))}
           className="w-10 h-10 rounded-xl border border-border bg-surface text-xl text-text-primary flex items-center justify-center active:scale-95"
         >
           ＋
@@ -111,6 +114,17 @@ export default function NewHealthRecordPage() {
   const [recordedAt, setRecordedAt] = useState(new Date().toISOString().slice(0, 16));
   const [showOptional, setShowOptional] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [todayRecordExists, setTodayRecordExists] = useState(false);
+
+  useEffect(() => {
+    if (!user || !activePet) return;
+    api.get<{ recordedAt: string }[]>(`/api/health-records?petId=${activePet.id}`, user)
+      .then((records) => {
+        const today = new Date().toDateString();
+        setTodayRecordExists(records.some((r) => new Date(r.recordedAt).toDateString() === today));
+      })
+      .catch(() => {});
+  }, [user, activePet?.id]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -160,6 +174,12 @@ export default function NewHealthRecordPage() {
         <h1 className="text-xl font-bold text-text-primary">健康記録</h1>
       </div>
       <p className="text-sm text-text-secondary -mt-2">{activePet.name}</p>
+
+      {todayRecordExists && (
+        <div className="bg-[#FFF9C4] border border-yellow-300 rounded-xl px-4 py-3 text-sm text-yellow-800">
+          今日はすでに記録があります。追加で記録することもできます。
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         {/* STEP1: 必須 */}

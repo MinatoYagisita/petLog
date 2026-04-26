@@ -231,3 +231,30 @@ model Trimming {
   pet   Pet    @relation(fields: [petId], references: [id])
   salon Salon? @relation(fields: [salonId], references: [id])
 }
+
+model PlaceAccount {
+  id          String   @id
+  email       String   @unique
+  accountType String
+  createdAt   DateTime @default(now())
+
+  listings PlaceListing[]
+}
+
+model PlaceListing {
+  id        String    @id @default(cuid())
+  accountId String
+  type      String
+  name      String
+  phone     String?
+  photoUrl  String?
+  address   String?
+  lat       Float?
+  lng       Float?
+  status    String    @default("pending")
+  adminNote String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  account PlaceAccount @relation(fields: [accountId], references: [id])
+}

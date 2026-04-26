@@ -17,6 +17,7 @@ export function NotificationInitializer() {
       try {
         const token = await requestFcmToken();
         if (!token) return;
+        if (!user) return;
         await api.post("/api/notifications/token", user, { token });
         cleanupForeground = setupForegroundHandler();
       } catch {
